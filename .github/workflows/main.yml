@@ -1,0 +1,56 @@
+name: Deploy Lambda Function For Job Tracker Delete Job
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:  # Allows manual triggering
+
+# OIDC permissions for keyless authentication
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: 'npm'
+        
+    - name: Install Production Dependencies
+      run: npm ci --production
+
+    # No build step needed for this simple static website
+    # Just update the deployment timestamp in the JavaScript file
+
+    # # Configure AWS credentials
+    # - name: Configure AWS credentials
+    #   uses: aws-actions/configure-aws-credentials@v1
+    #   with:
+    #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+    #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    #     aws-region: "ap-south-1"
+
+    # OIDC/IRSA Authentication - No more access keys!
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: "arn:aws:iam::636766102575:role/GitHubOIDCRole"
+        role-session-name: GitHubActions-Backend-${{ github.run_id }}
+        aws-region: "ap-southeast-1"
+
+    # Deploy to AWS Lambda - directly sync the repository contents
+    - name: Zip and Deploy to AWS Lambda
+      uses: aws-actions/aws-lambda-deploy@v1
+      with:
+        function-name: job-tracker-deleteJob-function
+        code-artifacts-dir: .
+        runtime: nodejs24.x
+        handler: index.handler
