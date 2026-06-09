@@ -54,3 +54,4 @@ jobs:
         code-artifacts-dir: .
         runtime: nodejs24.x
         handler: index.handler
+        timeout: 15
